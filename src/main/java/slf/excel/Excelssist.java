@@ -1,6 +1,7 @@
 package slf.excel;
 
 import org.apache.commons.beanutils.BeanUtils;
+import org.apache.poi.hssf.usermodel.HSSFDateUtil;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -11,6 +12,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
+import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
@@ -105,18 +107,46 @@ public class Excelssist {
                     field.setAccessible(true);
                     String type = field.getType().getTypeName();
                     Cell xcell = xrow.getCell(col);
-                    xcell.setCellType(CellType.STRING);
-                    String cellValue = xcell.toString();
+                    String cellValue = "";
+                    int cellType = xcell.getCellType();
+                    switch (cellType) {
+                        case Cell.CELL_TYPE_STRING:
+                            cellValue = xcell.getStringCellValue().trim();
+                            break;
+                        case Cell.CELL_TYPE_BOOLEAN:
+                            cellValue = String.valueOf(xcell.getBooleanCellValue());
+                            break;
+                        case Cell.CELL_TYPE_FORMULA:
+                            cellValue = String.valueOf(xcell.getCellFormula().trim());
+                            break;
+                        case Cell.CELL_TYPE_NUMERIC:
+                            if (HSSFDateUtil.isCellDateFormatted(xcell)) {
+                                cellValue = sdf.format(xcell.getDateCellValue());
+                            } else {
+                                cellValue = new DecimalFormat("#.##").format(xcell.getNumericCellValue());
+                            }
+                            break;
+                        case Cell.CELL_TYPE_BLANK:
+                            cellValue = "NULL";
+                            break;
+                        case Cell.CELL_TYPE_ERROR:
+                            cellValue = "ERROR";
+                            break;
+                        default:
+                            cellValue = xcell.toString().trim();
+                            break;
+                    }
                     try {
                         switch (type) {
                             case "java.lang.Integer":
+                                xcell.setCellType(CellType.STRING);
                                 field.set(tClone, Integer.valueOf(cellValue));
                                 break;
                             case "java.lang.String":
                                 field.set(tClone, cellValue);
                                 break;
-                            case "java.lang.BigDecimal":
-                                field.set(tClone, new BigDecimal(cellValue));
+                            case "java.math.BigDecimal":
+                                field.set(tClone, new BigDecimal(cellValue).setScale(2,   BigDecimal.ROUND_HALF_UP));
                                 break;
                             case "java.lang.Double":
                                 field.set(tClone, Double.valueOf(cellValue));
