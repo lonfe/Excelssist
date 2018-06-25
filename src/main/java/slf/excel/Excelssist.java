@@ -1,9 +1,7 @@
 package slf.excel;
 
 import org.apache.commons.beanutils.BeanUtils;
-import org.apache.poi.hssf.usermodel.HSSFDateUtil;
-import org.apache.poi.hssf.usermodel.HSSFSheet;
-import org.apache.poi.hssf.usermodel.HSSFWorkbook;
+import org.apache.poi.hssf.usermodel.*;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -11,10 +9,7 @@ import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
@@ -27,8 +22,10 @@ public class Excelssist {
     private Sheet sheet;
     private Map<Integer, String> propertyMap = new TreeMap<>();
     private Map<Integer, String> cellMap = new TreeMap<>();
-    public Excelssist() {
 
+    public Excelssist() {
+        wb = new HSSFWorkbook();
+        sheet = wb.createSheet();
     }
 
     public Excelssist(String filePath) {
@@ -104,11 +101,81 @@ public class Excelssist {
         return excelToObject(rowNum, targetObject, propertyList);
     }
 
-    public <T> HSSFWorkbook objectToExcel(String sheetName, T object, List<String> cellList) {
-        HSSFWorkbook workbook = new HSSFWorkbook();
-        HSSFSheet sheet = workbook.createSheet(sheetName);
-        Class clazz = object.getClass();
-        return workbook;
+    public static void main(String[] args) throws NoSuchFieldException, IllegalAccessException, IOException {
+//        Goods goods = new Goods();
+//        goods.setName("apple");
+//        goods.setPrice(new BigDecimal(12.50));
+//        goods.setCount(100);
+//        List<Goods> objects = new ArrayList<>();
+//        objects.add(goods);
+//        Excelssist excelssist = new Excelssist();
+//        List<String> cellList = Arrays.asList(new String[]{"name", "price", "count"});
+//        HSSFWorkbook wb = excelssist.objectToExcel(0, objects, cellList);
+//        wb.write(new File("D:/goods.xlsx"));
+
+        //定义表头
+        String[] title={"序号","姓名","年龄"};
+//创建excel工作簿
+        HSSFWorkbook workbook=new HSSFWorkbook();
+//创建工作表sheet
+        HSSFSheet sheet=workbook.createSheet();
+//创建第一行
+        HSSFRow row=sheet.createRow(0);
+        HSSFCell cell=null;
+//插入第一行数据的表头
+        for(int i=0;i<title.length;i++){
+            cell=row.createCell(i);
+            cell.setCellValue(title[i]);
+        }
+//写入数据
+        for (int i=1;i<=10;i++){
+            HSSFRow nrow=sheet.createRow(i);
+            HSSFCell ncell=nrow.createCell(0);
+            ncell.setCellValue(""+i);
+            ncell=nrow.createCell(1);
+            ncell.setCellValue("user"+i);
+            ncell=nrow.createCell(2);
+            ncell.setCellValue("24");
+        }
+//创建excel文件
+        File file=new File("D://poi.xlsx");
+        try {
+            file.createNewFile();
+            //将excel写入
+            workbook.write(new File("d://poi.xlsx"));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    public <T> HSSFWorkbook objectToExcel(int num, List<T> objects, List<String> cellList) throws NoSuchFieldException, IllegalAccessException {
+        if (objects == null) {
+            throw new NullPointerException("null objects");
+        }
+        for (T t : objects) {
+            if (t != null) {
+                Row xrow = sheet.createRow(num);
+                Class tClass = t.getClass();
+                for (int i = 0; i < cellList.size(); i++) {
+                    Cell xcell = xrow.createCell(i);
+                    Field field = tClass.getDeclaredField(cellList.get(i));
+                    field.setAccessible(true);
+                    Object value = field.get(t);
+                    if (value instanceof Integer) {
+                        xcell.setCellValue((Integer) field.get(t));
+                    } else if (value instanceof Long) {
+                        xcell.setCellValue((Long) field.get(t));
+                    } else if (value instanceof Double) {
+                        xcell.setCellValue((Double) field.get(t));
+                    } else if (value instanceof String) {
+                        xcell.setCellValue((String) field.get(t));
+                    }
+                }
+                num++;
+            }
+        }
+        return (HSSFWorkbook) wb;
     }
 
     public <T> List<T> excelToObject(int rowNum, T object, List<String> propertyList) {
@@ -169,7 +236,7 @@ public class Excelssist {
                                 field.set(tClone, cellValue);
                                 break;
                             case "java.math.BigDecimal":
-                                field.set(tClone, new BigDecimal(cellValue).setScale(2,   BigDecimal.ROUND_HALF_UP));
+                                field.set(tClone, new BigDecimal(cellValue).setScale(2, BigDecimal.ROUND_HALF_UP));
                                 break;
                             case "java.lang.Double":
                                 field.set(tClone, Double.valueOf(cellValue));
@@ -182,7 +249,7 @@ public class Excelssist {
                                 break;
                         }
                     } catch (IllegalArgumentException e) {
-                        throw new IllegalAccessException("property set error, row: " + (++row) + ", column: "+ (++col) + ", property type: " + type + ", value: " + cellValue);
+                        throw new IllegalAccessException("property set error, happen in row: " + (++row) + ", column: " + (++col) + ", type: " + type + ", value: " + cellValue);
                     }
                 }
                 targetList.add(tClone);
