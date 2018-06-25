@@ -2,8 +2,13 @@ package slf.excel;
 
 import org.apache.commons.beanutils.BeanUtils;
 import org.apache.poi.hssf.usermodel.HSSFDateUtil;
+import org.apache.poi.hssf.usermodel.HSSFSheet;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
-import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import java.io.FileInputStream;
@@ -21,7 +26,7 @@ public class Excelssist {
     private Workbook wb;
     private Sheet sheet;
     private Map<Integer, String> propertyMap = new TreeMap<>();
-
+    private Map<Integer, String> cellMap = new TreeMap<>();
     public Excelssist() {
 
     }
@@ -49,6 +54,17 @@ public class Excelssist {
             Sign sign = field.getAnnotation(Sign.class);
             if (sign != null) {
                 propertyMap.put(sign.num(), field.getName());
+            }
+        }
+    }
+
+    public <T> void cellParse(T t) {
+        Class tClass = t.getClass();
+        Field[] fields = tClass.getDeclaredFields();
+        for (Field field : fields) {
+            slf.excel.Cell cell = field.getAnnotation(slf.excel.Cell.class);
+            if (cell != null) {
+                cellMap.put(cell.num(), field.getName());
             }
         }
     }
@@ -81,14 +97,21 @@ public class Excelssist {
         return colLen;
     }
 
-    public <T> List<T> cellValueToTargetObject(int rowNum, T targetObject) {
+    public <T> List<T> excelToObject(int rowNum, T targetObject) {
         propertiesParse(targetObject);
         List<String> propertyList = new ArrayList<>();
         propertyMap.forEach((k, v) -> propertyList.add(v));
-        return cellValueToTargetObject(rowNum, targetObject, propertyList);
+        return excelToObject(rowNum, targetObject, propertyList);
     }
 
-    public <T> List<T> cellValueToTargetObject(int rowNum, T targetObject, List<String> propertyList) {
+    public <T> HSSFWorkbook objectToExcel(String sheetName, T object, List<String> cellList) {
+        HSSFWorkbook workbook = new HSSFWorkbook();
+        HSSFSheet sheet = workbook.createSheet(sheetName);
+        Class clazz = object.getClass();
+        return workbook;
+    }
+
+    public <T> List<T> excelToObject(int rowNum, T object, List<String> propertyList) {
         if (rowNum <= 0) {
             throw new IllegalArgumentException("illegal parameter, rowNum: " + rowNum);
         }
@@ -99,7 +122,7 @@ public class Excelssist {
         for (int row = --rowNum; row < getRowLen(); row++) {
             try {
                 Row xrow = sheet.getRow(row);
-                T tClone = (T) BeanUtils.cloneBean(targetObject);
+                T tClone = (T) BeanUtils.cloneBean(object);
                 Class tClass = tClone.getClass();
                 for (int col = 0; col < propertyList.size(); col++) {
                     String property = propertyList.get(col);
