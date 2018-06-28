@@ -79,21 +79,6 @@ public class Excelssist {
         return ++lastRowNum;
     }
 
-    public int getColLenByAppointRow(int rowNum) {
-        if (rowNum < 0) {
-            throw new IllegalArgumentException("illegal parameter, rowNum: " + rowNum);
-        }
-        if (rowNum > getRowLen()) {
-            throw new IllegalArgumentException("illegal parameter, rowNum: " + rowNum + " > rowMaxNum: " + getRowLen());
-        }
-        int colLen = 0;
-        Row row = sheet.getRow(rowNum);
-        if (row != null) {
-            colLen = row.getLastCellNum();
-        }
-        return colLen;
-    }
-
     public <T> List<T> excelToObject(int rowNum, T targetObject) {
         propertiesParse(targetObject);
         List<String> propertyList = new ArrayList<>();
@@ -101,89 +86,42 @@ public class Excelssist {
         return excelToObject(rowNum, targetObject, propertyList);
     }
 
-    public static void main(String[] args) throws NoSuchFieldException, IllegalAccessException, IOException {
-//        Goods goods = new Goods();
-//        goods.setName("apple");
-//        goods.setPrice(new BigDecimal(12.50));
-//        goods.setCount(100);
-//        List<Goods> objects = new ArrayList<>();
-//        objects.add(goods);
-//        Excelssist excelssist = new Excelssist();
-//        List<String> cellList = Arrays.asList(new String[]{"name", "price", "count"});
-//        HSSFWorkbook wb = excelssist.objectToExcel(0, objects, cellList);
-//        wb.write(new File("D:/goods.xlsx"));
-
-        //定义表头
-        String[] title={"序号","姓名","年龄"};
-//创建excel工作簿
-        HSSFWorkbook workbook=new HSSFWorkbook();
-//创建工作表sheet
-        HSSFSheet sheet=workbook.createSheet();
-//创建第一行
-        HSSFRow row=sheet.createRow(0);
-        HSSFCell cell=null;
-//插入第一行数据的表头
-        for(int i=0;i<title.length;i++){
-            cell=row.createCell(i);
-            cell.setCellValue(title[i]);
+    public <T> Workbook objectToExcel(int rowNum, List<T> objects, List<String> cellList) throws NoSuchFieldException, IllegalAccessException {
+        if (rowNum <= 0) {
+            throw new IllegalArgumentException(String.format("rowNum: %d (expected: > 0)", rowNum));
         }
-//写入数据
-        for (int i=1;i<=10;i++){
-            HSSFRow nrow=sheet.createRow(i);
-            HSSFCell ncell=nrow.createCell(0);
-            ncell.setCellValue(""+i);
-            ncell=nrow.createCell(1);
-            ncell.setCellValue("user"+i);
-            ncell=nrow.createCell(2);
-            ncell.setCellValue("24");
-        }
-//创建excel文件
-        File file=new File("D://poi.xlsx");
-        try {
-            file.createNewFile();
-            //将excel写入
-            workbook.write(new File("d://poi.xlsx"));
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-    }
-
-    public <T> HSSFWorkbook objectToExcel(int num, List<T> objects, List<String> cellList) throws NoSuchFieldException, IllegalAccessException {
         if (objects == null) {
-            throw new NullPointerException("null objects");
+            throw new NullPointerException("objects");
         }
         for (T t : objects) {
-            if (t != null) {
-                Row xrow = sheet.createRow(num);
-                Class tClass = t.getClass();
-                for (int i = 0; i < cellList.size(); i++) {
-                    Cell xcell = xrow.createCell(i);
-                    Field field = tClass.getDeclaredField(cellList.get(i));
-                    field.setAccessible(true);
-                    Object value = field.get(t);
-                    if (value instanceof Integer) {
-                        xcell.setCellValue((Integer) field.get(t));
-                    } else if (value instanceof Long) {
-                        xcell.setCellValue((Long) field.get(t));
-                    } else if (value instanceof Double) {
-                        xcell.setCellValue((Double) field.get(t));
-                    } else if (value instanceof String) {
-                        xcell.setCellValue((String) field.get(t));
-                    }
+            Row xrow = sheet.createRow(rowNum);
+            Class tClass = t.getClass();
+            for (int i = 0; i < cellList.size(); i++) {
+                Cell xcell = xrow.createCell(i);
+                Field field = tClass.getDeclaredField(cellList.get(i));
+                field.setAccessible(true);
+                Object value = field.get(t);
+                if (value instanceof Integer) {
+                    xcell.setCellValue((Integer) field.get(t));
+                } else if (value instanceof Long) {
+                    xcell.setCellValue((Long) field.get(t));
+                } else if (value instanceof Double) {
+                    xcell.setCellValue((Double) field.get(t));
+                } else if (value instanceof String) {
+                    xcell.setCellValue((String) field.get(t));
                 }
-                num++;
             }
+            rowNum++;
         }
-        return (HSSFWorkbook) wb;
+        return wb;
     }
 
     public <T> List<T> excelToObject(int rowNum, T object, List<String> propertyList) {
         if (rowNum <= 0) {
-            throw new IllegalArgumentException("illegal parameter, rowNum: " + rowNum);
+            throw new IllegalArgumentException(String.format("rowNum: %d (expected: > 0)", rowNum));
         }
         if (rowNum > getRowLen()) {
-            throw new IllegalArgumentException("illegal parameter, rowNum: " + rowNum + ", rowMaxNum: " + getRowLen());
+            throw new IllegalArgumentException(String.format("rowNum: %d (expected: < %d)", rowNum, getRowLen()));
         }
         List<T> targetList = new ArrayList<>();
         for (int row = --rowNum; row < getRowLen(); row++) {
@@ -197,29 +135,29 @@ public class Excelssist {
                     field.setAccessible(true);
                     String type = field.getType().getTypeName();
                     Cell xcell = xrow.getCell(col);
-                    String cellValue = "";
-                    int cellType = xcell.getCellType();
+                    String cellValue;
+                    CellType cellType = xcell.getCellTypeEnum();
                     switch (cellType) {
-                        case Cell.CELL_TYPE_STRING:
+                        case STRING:
                             cellValue = xcell.getStringCellValue().trim();
                             break;
-                        case Cell.CELL_TYPE_BOOLEAN:
+                        case BOOLEAN:
                             cellValue = String.valueOf(xcell.getBooleanCellValue());
                             break;
-                        case Cell.CELL_TYPE_FORMULA:
+                        case FORMULA:
                             cellValue = String.valueOf(xcell.getCellFormula().trim());
                             break;
-                        case Cell.CELL_TYPE_NUMERIC:
+                        case NUMERIC:
                             if (HSSFDateUtil.isCellDateFormatted(xcell)) {
                                 cellValue = sdf.format(xcell.getDateCellValue());
                             } else {
                                 cellValue = new DecimalFormat("#.##").format(xcell.getNumericCellValue());
                             }
                             break;
-                        case Cell.CELL_TYPE_BLANK:
-                            cellValue = "NULL";
+                        case BLANK:
+                            cellValue = "";
                             break;
-                        case Cell.CELL_TYPE_ERROR:
+                        case ERROR:
                             cellValue = "ERROR";
                             break;
                         default:
@@ -249,13 +187,13 @@ public class Excelssist {
                                 break;
                         }
                     } catch (IllegalArgumentException e) {
-                        throw new IllegalAccessException("property set error, happen in row: " + (++row) + ", column: " + (++col) + ", type: " + type + ", value: " + cellValue);
+                        throw new IllegalAccessException(String.format("property set error, happen in row: %d, column: %d, and type: %s, value: %s", ++row, ++col, type, cellValue));
                     }
                 }
                 targetList.add(tClone);
             } catch (Exception e) {
                 e.printStackTrace();
-                return Collections.EMPTY_LIST;
+                targetList.clear();
             }
         }
         return targetList;
