@@ -125,6 +125,7 @@ public class Excelssist {
         }
         List<T> targetList = new ArrayList<>();
         for (int row = --rowNum; row < getRowLen(); row++) {
+            boolean success = false;
             try {
                 Row xrow = sheet.getRow(row);
                 T tClone = (T) BeanUtils.cloneBean(object);
@@ -191,9 +192,12 @@ public class Excelssist {
                     }
                 }
                 targetList.add(tClone);
+                success = true;
             } catch (Exception e) {
                 e.printStackTrace();
-                targetList.clear();
+            } finally {
+                if (!success)
+                    targetList.clear();
             }
         }
         return targetList;
